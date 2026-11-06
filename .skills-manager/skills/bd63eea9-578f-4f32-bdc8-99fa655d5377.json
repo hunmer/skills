@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "bd63eea9-578f-4f32-bdc8-99fa655d5377",
+  "path": "procm-http",
+  "path_key": "procm-http",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

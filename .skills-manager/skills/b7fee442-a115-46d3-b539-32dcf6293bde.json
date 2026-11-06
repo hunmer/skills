@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "b7fee442-a115-46d3-b539-32dcf6293bde",
+  "path": "dsh-agent-team",
+  "path_key": "dsh-agent-team",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

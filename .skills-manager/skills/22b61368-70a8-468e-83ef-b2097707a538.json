@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "22b61368-70a8-468e-83ef-b2097707a538",
+  "path": "procm-init",
+  "path_key": "procm-init",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
