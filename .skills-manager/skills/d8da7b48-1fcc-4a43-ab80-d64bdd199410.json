@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "d8da7b48-1fcc-4a43-ab80-d64bdd199410",
+  "path": "stageshow",
+  "path_key": "stageshow",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/benjitaylor/skills/tree/main/stageshow",
+    "subpath": "stageshow",
+    "branch": "main"
+  }
+}
