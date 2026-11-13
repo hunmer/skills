@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Direct OpenAI-compatible image generation and editing with stdlib only."""
 
+from __future__ import annotations
+
 import argparse
 import base64
 import json
@@ -20,6 +22,18 @@ SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 
 RETRIES = 2
 RETRY_DELAY = 2
+
+DEFAULT_MODEL = "gpt-image-2"
+SUPPORTED_MODELS = [
+    "gpt-image-2",
+    "gpt-image-2.5-flare",
+    "gpt-image-2.5-sunburst",
+    "gpt-image-2.6",
+    "gpt-image-2.6-flare",
+    "gpt-image-2.6-sunburst",
+    "gemini-3-pro-image-preview",
+    "gemini-nano-banana-2.1",
+]
 
 
 def endpoint(base_url: str, route: str) -> str:
@@ -127,7 +141,7 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     gen = sub.add_parser("generate")
     gen.add_argument("--prompt", required=True)
-    gen.add_argument("--model", default="gpt-image-2")
+    gen.add_argument("--model", default=DEFAULT_MODEL, choices=SUPPORTED_MODELS)
     gen.add_argument("--size", default="1024x1024")
     gen.add_argument("--quality", default="medium")
     gen.add_argument("--n", type=int, default=1)
@@ -138,7 +152,7 @@ def main() -> int:
     edit_parser = sub.add_parser("edit")
     edit_parser.add_argument("--image", type=pathlib.Path, action="append", required=True)
     edit_parser.add_argument("--prompt", required=True)
-    edit_parser.add_argument("--model", default="gpt-image-2")
+    edit_parser.add_argument("--model", default=DEFAULT_MODEL, choices=SUPPORTED_MODELS)
     edit_parser.add_argument("--size", default="1024x1024")
     edit_parser.add_argument("--out", type=pathlib.Path, required=True)
     edit_parser.add_argument("--dry-run", action="store_true")

@@ -1,6 +1,6 @@
 ---
 name: http-imagegen
-description: Generate and edit raster images through an OpenAI-compatible HTTP image endpoint using IMAGEGEN_OPENAI_API_KEY and IMAGEGEN_OPENAI_BASE_URL. Use when image generation must bypass the built-in image tool or SDK, especially with custom proxies such as api.hyhawang.com, gpt-image-2, synchronous generations, or image edits.
+description: Generate and edit raster images through an OpenAI-compatible HTTP image endpoint using IMAGEGEN_OPENAI_API_KEY and IMAGEGEN_OPENAI_BASE_URL. Use when image generation must bypass the built-in image tool or SDK, especially with custom proxies such as api.hyhawang.com, gpt-image-2 / gpt-image-2.5 / gpt-image-2.6 variants, gemini-3-pro-image-preview, gemini-nano-banana-2.1, synchronous generations, or image edits.
 ---
 
 # HTTP Imagegen
@@ -61,6 +61,23 @@ must not be copied. Do not combine references into a contact sheet when the
 endpoint supports multiple images; direct numbered references preserve the
 relationship more reliably.
 
+## Models
+
+Supported models (pass via `--model`; default is `gpt-image-2`):
+
+- `gpt-image-2` (default)
+- `gpt-image-2.5-flare`
+- `gpt-image-2.5-sunburst`
+- `gpt-image-2.6`
+- `gpt-image-2.6-flare`
+- `gpt-image-2.6-sunburst`
+- `gemini-3-pro-image-preview`
+- `gemini-nano-banana-2.1`
+
+The script rejects any model not in this list, so typos fail fast before a
+network request. Gemini models follow the same OpenAI-compatible image
+endpoint contract.
+
 ## Diagnostics
 
 Use `--dry-run` to inspect the normalized endpoint, model, payload, and output
@@ -71,7 +88,7 @@ service response and verify account/model access.
 
 ## Constraints
 
-- Default model is `gpt-image-2`; pass `--model` only when the provider documents another supported model.
+- Default model is `gpt-image-2`; `--model` accepts the models listed above.
 - Use synchronous endpoints by default. Async image tasks require provider-side object storage and polling, which this skill does not implement.
 - Keep generated assets in the user-requested location; otherwise use `outputs/`.
 - Keep prompts original and avoid requesting exact copyrighted characters, logos, or game UI.
