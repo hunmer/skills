@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "skill_id": "5bfb0086-d9ad-4267-afee-4d7ea4db9f89",
-  "path": "init-project-2",
-  "path_key": "init-project-2",
+  "skill_id": "afd98d3e-a154-4153-b0bf-3586ec6f3471",
+  "path": "init-project",
+  "path_key": "init-project",
   "enabled": true,
   "tags": [],
   "source": {
