@@ -2,8 +2,23 @@
   "schema_version": 1,
   "scenario_id": "15919771-4d2d-4f15-92b9-6c69d751976d",
   "skill_id": "3f9865c2-11e6-4745-baf2-b16f70f09ded",
-  "sort_order": 1,
+  "sort_order": 2,
   "tools": {
-    "deepseek_harness": true
+    "claude_code": true,
+    "codebuddy": true,
+    "codex": true,
+    "deepseek_harness": true,
+    "gemini_cli": true,
+    "github_copilot": true,
+    "grok": true,
+    "hermes": true,
+    "iflow": true,
+    "kimi": true,
+    "kiro": true,
+    "omp_agent": true,
+    "openclaw": true,
+    "opencode": true,
+    "workbuddy": true,
+    "zcode": true
   }
 }
