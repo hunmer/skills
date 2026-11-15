@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "8f55d8b3-54d1-4a44-bb4a-404b9bbe46aa",
+  "path": "media-use",
+  "path_key": "media-use",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

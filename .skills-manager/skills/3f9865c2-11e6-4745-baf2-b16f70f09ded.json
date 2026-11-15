@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "3f9865c2-11e6-4745-baf2-b16f70f09ded",
+  "path": "http-imagegen",
+  "path_key": "http-imagegen",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
