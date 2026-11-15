@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<!-- init-project feature_map viewer 模板：生成时用 docs/feature_map.json（压缩后）替换 seed 标签内的唯一占位符，产物写到目标项目 docs/feature_map.html。勿在本文件内内嵌真实数据。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>功能依赖图谱</title>
+<style>
+:root{
+	--bg:#15171e; --bg2:#1b1e27; --bg3:#222633; --panel:#1e222d; --line:#2e3342;
+	--text:#d8dce6; --dim:#8b92a5; --faint:#5d6475;
+	--accent:#e8b04b; --accent-dim:#a87f2f;
+	--green:#7bc96f; --red:#e06c6c; --blue:#6fa8d8; --purple:#b48edd; --teal:#5fbfb0;
+	--mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,'PingFang SC','Microsoft YaHei',sans-serif;overflow:hidden}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ===== top bar ===== */
+#topbar{display:flex;align-items:center;gap:14px;height:52px;padding:0 16px;background:var(--bg2);border-bottom:1px solid var(--line);flex-shrink:0}
+#topbar h1{font-size:15px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+#topbar h1 .px{color:var(--accent)}
+.fbar{padding:8px 12px 4px;border-bottom:1px solid var(--line)}
+#ffilter{width:100%;padding:6px 9px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:12.5px;outline:none}
+#ffilter:focus{border-color:var(--accent-dim)}
+.stats{display:flex;gap:8px;margin-left:auto}
+.stat{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 10px;font-size:12px;color:var(--dim);white-space:nowrap}
+.stat b{color:var(--text);font-family:var(--mono);font-size:13px}
+.stat.acc b{color:var(--green)}
+button.ghost{background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--dim);padding:5px 10px;font-size:12px;cursor:pointer}
+button.ghost:hover{color:var(--text);border-color:var(--accent-dim)}
+
+/* ===== layout ===== */
+#main{display:flex;height:calc(100% - 52px)}
+#sidebar{width:302px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--line);overflow-y:auto}
+.vrs{width:6px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .15s;z-index:5}
+.vrs:hover,.vrs.drag{background:rgba(232,176,75,.35)}
+#drawer{width:560px;max-width:60vw;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--line);overflow-y:auto;overflow-x:hidden;padding:14px 16px 40px;display:none}
+#drawer.open{display:block}
+/* 第三列窄容器自适应：长文件名/路径/徽章截断，不横向溢出 */
+#drawer .ftree{max-width:none;overflow-x:auto}
+#drawer .ftree .ftdir,#drawer .ftree .ftfile{width:max-content;min-width:100%;box-sizing:border-box}
+#drawer td.path{white-space:normal;word-break:break-all}
+#drawer .cpfeat .cpname{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .cpfeat .fc{flex-shrink:0}
+#drawer .tag{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .cphead{display:flex;align-items:center;gap:8px}
+#drawer .cphead h2{font-size:16px;margin:0;flex:1}
+#drawer .cpx{cursor:pointer;color:var(--faint);padding:2px 6px;border-radius:4px;flex-shrink:0}
+#drawer .cpx:hover{color:var(--accent)}
+#drawer .cpstat{color:var(--dim);font-size:12.5px;margin:8px 0 4px;line-height:1.7}
+#drawer .dpsec{font-size:11px;color:var(--faint);letter-spacing:.08em;margin:18px 0 6px}
+#drawer .dpact{margin:10px 0 2px}
+#drawer .cpfeat{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12.5px}
+#drawer .cpfeat:hover{background:rgba(232,176,75,.07)}
+#drawer .cpfeat .fc{margin-left:auto}
+#drawer .fdesc{font-size:13px;color:var(--dim);line-height:1.7}
+#content{flex:1;overflow-y:auto;padding:22px 28px 80px}
+
+/* ===== sidebar tabs ===== */
+#sideTabs{display:flex;gap:6px;padding:10px 12px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2);z-index:3}
+.stab{flex:1;text-align:center;padding:6px 0;border-radius:6px;font-size:12.5px;color:var(--dim);cursor:pointer;border:1px solid var(--line);background:var(--bg3)}
+.stab:hover{color:var(--text)}
+.stab.on{color:var(--accent);border-color:var(--accent-dim);background:rgba(232,176,75,.08)}
+
+/* ===== feature tree ===== */
+.sidebody{padding:8px 0 40px}
+.cat{margin-bottom:2px}
+.cat-head{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;user-select:none;border-radius:6px}
+.cat-head:hover{background:var(--bg3)}
+.cat-head .caret{color:var(--faint);font-size:10px;width:10px;transition:transform .15s}
+.cat.open .caret{transform:rotate(90deg)}
+.cat-head .ci{font-size:15px}
+.cat-head .cn{font-weight:600;font-size:13px}
+.cat-head .cc{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint);background:var(--bg3);border-radius:8px;padding:0 7px}
+.feats{display:none}
+.cat.open .feats{display:block}
+.feat{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 30px;cursor:pointer;user-select:none;border-radius:6px;font-size:12.5px;color:var(--dim)}
+.feat:hover{background:var(--bg3);color:var(--text)}
+.feat.sel{background:var(--bg3);color:var(--accent)}
+.feat .fc{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.feat.sel .fc{color:var(--accent-dim)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* ===== folder tree ===== */
+.dhead{font-weight:600;color:var(--text)}
+.dhead .fc{margin-left:auto}
+.fleaf .fname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fleaf .dots{display:inline-flex;gap:2px;margin-left:auto;align-items:center;flex-shrink:0}
+.rk{width:24px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--faint);flex-shrink:0}
+.rk.top{color:var(--accent);font-weight:700}
+
+/* ===== content ===== */
+.crumb{font-size:12px;color:var(--faint);margin-bottom:6px}
+.crumb a{color:var(--dim);cursor:pointer;text-decoration:none}
+.crumb a:hover{color:var(--accent)}
+.h2row{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+.h2row .ci{font-size:22px}
+h2{font-size:19px;font-weight:700}
+.tag{font-family:var(--mono);font-size:10.5px;color:var(--faint);background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+.fdesc{color:var(--dim);font-size:13.5px;max-width:820px;margin:8px 0 16px}
+.childchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.chip{background:var(--bg3);border:1px solid var(--line);border-radius:14px;padding:3px 12px;font-size:12px;color:var(--dim);cursor:pointer}
+.chip:hover{border-color:var(--accent-dim);color:var(--text)}
+
+h3{font-size:13px;color:var(--dim);font-weight:600;letter-spacing:.4px;margin:20px 0 8px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--faint);font-weight:500;font-size:11.5px;padding:5px 10px;border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.4px}
+td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:hover td{background:rgba(232,176,75,.04)}
+td.path{font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap}
+td.path:hover{color:var(--accent)}
+td.role{color:var(--dim);font-size:12.5px}
+td.lines{text-align:right;font-family:var(--mono);color:var(--faint);font-size:12px;white-space:nowrap}
+td.tnote{color:var(--dim);font-size:12.5px}
+td.badges{white-space:normal;min-width:140px;max-width:260px}
+.fbadge{display:inline-block;font-size:10.5px;line-height:17px;padding:0 7px;border-radius:4px;border:1px solid;cursor:pointer;margin:1px 0 1px 4px;white-space:nowrap}
+.fbadge:hover{filter:brightness(1.25)}
+.shared{display:inline-block;margin-left:6px;font-size:10px;color:var(--purple);border:1px solid var(--purple);border-radius:3px;padding:0 4px;opacity:.8}
+.ext{display:inline-block;font-family:var(--mono);font-size:10px;border-radius:3px;padding:0 5px;margin-right:7px;vertical-align:1px}
+.ext.gd{color:var(--blue);background:rgba(111,168,216,.12)}
+.ext.tscn{color:var(--teal);background:rgba(95,191,176,.12)}
+.ext.shader{color:var(--purple);background:rgba(180,142,221,.12)}
+.ext.config,.ext.data{color:var(--accent);background:rgba(232,176,75,.12)}
+.ext.mjs,.ext.sh,.ext.py{color:var(--green);background:rgba(123,201,111,.12)}
+.ext.md{color:var(--dim);background:rgba(139,146,165,.12)}
+.ext.dir{color:var(--faint);background:rgba(93,100,117,.15)}
+
+/* feature file tree (detail panel) */
+.ftree{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:6px 0;max-width:960px}
+.ftdir{display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;user-select:none;font-weight:600;font-size:13px}
+.ftdir:hover{color:var(--accent)}
+.ftdir .caret{font-size:9px;color:var(--faint);width:9px;flex-shrink:0}
+.ftdir .fc{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);font-weight:400}
+.ftfile{display:flex;align-items:center;gap:8px;padding:4px 14px;font-size:12.5px;cursor:pointer}
+.ftfile:hover{background:rgba(232,176,75,.05)}
+.ftfile .fname{font-family:var(--mono);font-size:12px;white-space:nowrap;flex-shrink:0}
+.ftfile .frole{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:120px}
+.ftfile .flines{font-family:var(--mono);font-size:11px;color:var(--faint);flex-shrink:0}
+.ftfile .fbadges{display:inline-flex;gap:3px;flex-shrink:0;max-width:250px;overflow:hidden}
+.ftfile .ftr-acts{display:inline-flex;gap:2px;opacity:0;flex-shrink:0}
+.ftfile:hover .ftr-acts{opacity:1}
+.ftfile .ftr-ic{cursor:pointer;color:var(--dim);font-size:12px;padding:1px 4px;border-radius:3px}
+.ftfile .ftr-ic:hover{color:var(--accent);background:rgba(232,176,75,.1)}
+
+/* knowledge graph control bar */
+.gctl{display:flex;align-items:center;gap:8px;margin:14px 0 10px;flex-wrap:wrap}
+.gsel{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px}
+
+.ftfile.active{background:rgba(232,176,75,.16);outline:1px solid var(--accent-dim);border-radius:4px}
+
+/* in-sidebar expand button */
+.sidebtn{display:block;width:calc(100% - 24px);margin:8px 12px 2px;padding:5px 0;text-align:center}
+
+/* coverage view */
+.cov-note{color:var(--dim);font-size:13px;max-width:820px;margin-bottom:14px}
+.vend{display:flex;gap:10px;flex-wrap:wrap}
+.vcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;min-width:240px}
+.vcard .vn{font-weight:600;font-size:13.5px}
+.vcard .vm{color:var(--dim);font-size:12px;margin-top:3px}
+.empty{color:var(--faint);font-size:13px;padding:20px 0}
+#content code{font-family:var(--mono);font-size:12.5px;background:var(--bg3);border-radius:4px;padding:1px 5px}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+	<h1 id="brand"><span class="px">▪</span> <span id="brandName">功能依赖图谱</span></h1>
+	<div class="stats" id="stats"></div>
+	<button class="ghost" id="covBtn">覆盖率 ⊕</button>
+</div>
+
+<div id="main">
+	<nav id="sidebar"></nav>
+	<div class="vrs" id="rzSide" title="拖动调整侧栏宽度（自动记住）"></div>
+	<div id="content"></div>
+	<div class="vrs" id="rzDrawer" title="拖动调整第三列宽度（自动记住）"></div>
+	<aside id="drawer"></aside>
+</div>
+
+<script type="application/json" id="seed">
+__JSON_SEED__
+</script>
+
+<script>
+__VIS_LIB__
+</script>
+
+<script>
+'use strict';
+/* ---------- data ---------- */
+let DATA = null;
+try { DATA = JSON.parse(document.getElementById('seed').textContent); } catch (e) { console.error(e); }
+// prefer live file (works when served over http); fall back to embedded seed
+fetch('feature_map.json').then(r => r.ok ? r.json() : null).then(j => { if (j) { DATA = j; boot(); } }).catch(() => {});
+
+/* ---------- index ---------- */
+let FEATURES = [];            // {id,name,desc,cat,icon,catId,node}
+let FILE_INDEX = {};          // path -> [{feat, role, lines, type, note}]
+let TEST_INDEX = {};          // test path (tscn-stripped) -> [featId]
+let FOLDER_ROOT = null;       // folder trie
+let ALL_DIR_PATHS = [];
+let RANKED = [];              // top-100 files by lines
+const TYPE_ORDER = {gd:0,tscn:1,shader:2,config:3,data:4,mjs:5,sh:6,py:7,md:8,dir:9};
+
+function indexData() {
+	FEATURES = []; FILE_INDEX = {}; TEST_INDEX = {};
+	DATA.tree.forEach(cat => {
+		cat.children.forEach(f => {
+			FEATURES.push({ id:f.id, name:f.name, desc:f.desc||'', cat:cat.name, icon:cat.icon, catId:cat.id, node:f });
+			(f.files||[]).forEach(x => {
+				(FILE_INDEX[x.path] = FILE_INDEX[x.path] || []).push({ feat:f.id, role:x.role||'', lines:x.lines, type:x.type, note:x.note });
+			});
+			(f.tests||[]).forEach(t => {
+				const key = t.path.replace(/\.tscn$/, '');
+				TEST_INDEX[key] = TEST_INDEX[key] || [];
+				TEST_INDEX[key].push(f.id);
+				(FILE_INDEX[t.path] = FILE_INDEX[t.path] || []).push({ feat:f.id, role:t.note||'契约测试', lines:null, type:t.type||'gd', note:t.note });
+			});
+		});
+	});
+}
+const featById = id => FEATURES.find(f => f.id === id);
+const fileCount = f => (f.node.files||[]).length + (f.node.tests||[]).length;
+const ownersOf = refs => [...new Set((refs||[]).map(r => r.feat))];
+
+/* ---------- folder trie ---------- */
+function buildFolders() {
+	FOLDER_ROOT = { name:'', path:'', dirs:{}, files:[] };
+	Object.keys(FILE_INDEX).sort().forEach(p => {
+		const parts = p.split('/');
+		let node = FOLDER_ROOT;
+		for (let i = 0; i < parts.length - 1; i++) {
+			const d = parts[i];
+			if (!node.dirs[d]) node.dirs[d] = { name:d, path:(node.path ? node.path+'/' : '')+d, dirs:{}, files:[] };
+			node = node.dirs[d];
+		}
+		node.files.push(p);
+	});
+	ALL_DIR_PATHS = [];
+	(function cnt(n){
+		let c = n.files.length;
+		for (const k in n.dirs) { c += cnt(n.dirs[k]); ALL_DIR_PATHS.push(n.dirs[k].path); }
+		n.count = c; return c;
+	})(FOLDER_ROOT);
+}
+function findDir(path) {
+	if (!path) return FOLDER_ROOT;
+	let n = FOLDER_ROOT;
+	for (const p of path.split('/')) { n = n.dirs[p]; if (!n) return null; }
+	return n;
+}
+const dirOf = p => { const i = p.lastIndexOf('/'); return i < 0 ? '' : p.slice(0, i); };
+
+/* ---------- feature colors (text hash -> hue) ---------- */
+function hashHue(s){ let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 360; }
+const FEAT_HUE = {};
+function featHue(id){ if (!(id in FEAT_HUE)) { const f = featById(id); FEAT_HUE[id] = hashHue(f ? f.name : id); } return FEAT_HUE[id]; }
+function featBadge(id){
+	const f = featById(id); if (!f) return '';
+	const h = featHue(id);
+	return `<span class="fbadge" data-go="${id}" style="background:hsl(${h},45%,20%);border-color:hsl(${h},45%,36%);color:hsl(${h},80%,74%)" title="${f.cat} · ${f.name}">${f.name}</span>`;
+}
+function featDot(id){ return `<span class="dot" style="background:hsl(${featHue(id)},55%,55%)"></span>`; }
+
+/* ---------- sidebar ---------- */
+function renderSidebar() {
+	const sb = document.getElementById('sidebar');
+	sb.innerHTML = '';
+	const tabs = document.createElement('div');
+	tabs.id = 'sideTabs';
+	tabs.innerHTML = `<div class="stab ${state.sideView==='feat'?'on':''}" data-tab="feat">🗂 功能</div>
+	                  <div class="stab ${state.sideView==='folder'?'on':''}" data-tab="folder">📁 文件夹</div>
+	                  <div class="stab ${state.sideView==='rank'?'on':''}" data-tab="rank">📊 Top100</div>`;
+	tabs.querySelectorAll('.stab').forEach(t => t.onclick = () => { if (state.sideView !== t.dataset.tab) { state.sideView = t.dataset.tab; renderSidebar(); } });
+	sb.appendChild(tabs);
+	const body = document.createElement('div');
+	body.className = 'sidebody';
+	sb.appendChild(body);
+	if (state.sideView === 'feat') renderSidebarFeat(body);
+	else if (state.sideView === 'folder') renderSidebarFolder(body);
+	else renderSidebarRank(body);
+}
+
+function renderSidebarFeat(sb) {
+	const btn = document.createElement('button');
+	btn.className = 'ghost sidebtn';
+	btn.id = 'expandAll';
+	btn.textContent = '⊕ 展开全部';
+	btn.onclick = () => {
+		const cats = document.querySelectorAll('.cat');
+		const anyClosed = [...cats].some(c => !c.classList.contains('open'));
+		cats.forEach(c => c.classList.toggle('open', anyClosed));
+	};
+	sb.appendChild(btn);
+	DATA.tree.forEach(cat => {
+		const div = document.createElement('div');
+		div.className = 'cat' + (cat.id === 'quality' ? '' : ' open');
+		const nFiles = cat.children.reduce((a,f) => a + (f.files||[]).length, 0);
+		div.innerHTML = `<div class="cat-head"><span class="caret">▶</span><span class="ci">${cat.icon}</span><span class="cn">${cat.name}</span><span class="catgo" data-catgo="${cat.id}" title="打开分类整页信息">↗</span><span class="cc">${cat.children.length}·${nFiles}</span></div>`;
+		const list = document.createElement('div');
+		list.className = 'feats';
+		cat.children.forEach(f => {
+			const el = document.createElement('div');
+			el.className = 'feat' + (state.view === 'feat' && state.sel === f.id ? ' sel' : '');
+			el.innerHTML = `${featDot(f.id)}<span>${f.name}</span><span class="fc">${fileCount({node:f})}</span>`;
+			el.onclick = () => select(f.id);
+			list.appendChild(el);
+		});
+		div.firstChild.onclick = () => div.classList.toggle('open');
+		const goBtn = div.firstChild.children[3];
+		if (goBtn) goBtn.onclick = ev => { ev.stopPropagation(); renderCategory(cat.id); };
+		div.appendChild(list);
+		sb.appendChild(div);
+	});
+}
+
+function renderSidebarFolder(sb) {
+	const bar = document.createElement('div');
+	bar.className = 'fbar';
+	bar.innerHTML = `<input id="ffilter" type="text" placeholder="过滤文件路径 / 职责…" autocomplete="off">`;
+	sb.appendChild(bar);
+	const tree = document.createElement('div');
+	sb.appendChild(tree);
+	const inp = bar.firstChild;
+	inp.value = state.filter || '';
+	inp.addEventListener('input', () => { state.filter = inp.value.trim(); drawTree(); });
+
+	function matchSet() {
+		if (!state.filter) return null;
+		const q = state.filter.toLowerCase();
+		const s = new Set();
+		Object.entries(FILE_INDEX).forEach(([p, refs]) => {
+			if (p.toLowerCase().includes(q) || refs.some(r => (r.role||'').toLowerCase().includes(q) || (r.note||'').toLowerCase().includes(q))) s.add(p);
+		});
+		return s;
+	}
+	function markSel(el) { sb.querySelectorAll('.feat.sel').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); }
+	function dirMatches(node, ms) { let k = node.files.filter(p => ms.has(p)).length; for (const kk in node.dirs) k += dirMatches(node.dirs[kk], ms); return k; }
+	function drawDir(node, depth, container, ms) {
+		Object.keys(node.dirs).sort().forEach(name => {
+			const d = node.dirs[name];
+			let show = true, cnt = d.count;
+			if (ms) { cnt = dirMatches(d, ms); show = cnt > 0; }
+			if (!show) return;
+			const open = ms ? true : state.openDirs.has(d.path);
+			const head = document.createElement('div');
+			head.className = 'feat dhead' + (state.view === 'folder' && state.folder === d.path ? ' sel' : '');
+			head.style.paddingLeft = (12 + depth * 13) + 'px';
+			head.innerHTML = `<span style="font-size:9px;color:var(--faint);width:9px;flex-shrink:0">${open?'▼':'▶'}</span><span>📁 ${name}</span><span class="fc">${cnt}</span>`;
+			const kids = document.createElement('div');
+			kids.style.display = open ? '' : 'none';
+			if (ms) head.onclick = () => renderFolder(d.path);
+			else head.onclick = () => {
+				if (state.openDirs.has(d.path)) { state.openDirs.delete(d.path); kids.style.display='none'; head.firstChild.textContent='▶'; }
+				else { state.openDirs.add(d.path); kids.style.display=''; head.firstChild.textContent='▼'; }
+				renderFolder(d.path); markSel(head);
+			};
+			container.appendChild(head); container.appendChild(kids);
+			drawDir(d, depth + 1, kids, ms);
+		});
+		node.files.slice().sort((a,b) => a.split('/').pop().localeCompare(b.split('/').pop())).forEach(p => {
+			if (ms && !ms.has(p)) return;
+			const el = document.createElement('div');
+			el.className = 'feat fleaf' + (state.file === p ? ' sel' : '');
+			el.style.paddingLeft = (12 + depth * 13 + 17) + 'px';
+			el.title = p;
+			const feats = ownersOf(FILE_INDEX[p]);
+			const dots = feats.slice(0, 3).map(featDot).join('');
+			el.innerHTML = `<span style="font-size:10px;opacity:.7">📄</span><span class="fname">${p.split('/').pop()}</span><span class="dots">${dots}${feats.length>3?`<span class="fc" style="font-size:9px">+${feats.length-3}</span>`:''}</span>`;
+			el.onclick = () => { state.file = p; markSel(el); openFileInFeature(p); };
+			container.appendChild(el);
+		});
+	}
+	function drawTree() {
+		tree.innerHTML = '';
+		const ms = matchSet();
+		if (ms && !ms.size) { tree.innerHTML = `<div class="empty" style="padding:14px 12px">无匹配文件</div>`; return; }
+		if (ms) {
+			const info = document.createElement('div');
+			info.className = 'empty';
+			info.style.cssText = 'padding:6px 12px;color:var(--accent-dim);font-size:11.5px';
+			info.textContent = `${ms.size} 个匹配 · Esc 清除`;
+			tree.appendChild(info);
+		}
+		drawDir(FOLDER_ROOT, 0, tree, ms);
+	}
+	drawTree();
+}
+
+function renderSidebarRank(sb) {
+	if (!RANKED.length) { sb.innerHTML = '<div class="empty" style="padding:16px 12px">无行数数据</div>'; return; }
+	const max = RANKED[0].lines;
+	RANKED.forEach((x, i) => {
+		const el = document.createElement('div');
+		el.className = 'feat' + (state.file === x.p ? ' sel' : '');
+		const w = Math.max(3, Math.round(x.lines / max * 100));
+		el.style.background = `linear-gradient(90deg, rgba(232,176,75,.09) ${w}%, transparent ${w}%)`;
+		el.title = `${x.p} — ${x.lines.toLocaleString()} 行`;
+		const name = x.p.split('/').pop(), dir = dirOf(x.p);
+		el.innerHTML = `<span class="rk ${i < 3 ? 'top' : ''}">${i + 1}</span>
+			<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="font-weight:600">${name}</b> <span style="color:var(--faint);font-size:10.5px">${dir ? dir + '/' : ''}</span></span>
+			<span style="display:inline-flex;gap:2px;flex-shrink:0">${x.feats.slice(0, 2).map(featDot).join('')}</span>
+			<span class="fc" style="margin-left:6px">${x.lines.toLocaleString()}</span>`;
+		el.onclick = () => {
+			state.file = x.p;
+			sb.querySelectorAll('.feat.sel').forEach(y => y.classList.remove('sel'));
+			el.classList.add('sel'); openFileInFeature(x.p);
+		};
+		sb.appendChild(el);
+	});
+}
+
+/* ---------- content views ---------- */
+function extBadge(type) { return type ? `<span class="ext ${type}">${type}</span>` : ''; }
+
+function featTreeHtml(files, featId) {
+	const root = { name:'', path:'', dirs:{}, files:[] };
+	files.forEach(x => {
+		const parts = x.path.split('/');
+		let n = root;
+		for (let i = 0; i < parts.length - 1; i++) {
+			const d = parts[i];
+			if (!n.dirs[d]) n.dirs[d] = { name:d, path:(n.path?n.path+'/':'')+d, dirs:{}, files:[] };
+			n = n.dirs[d];
+		}
+		n.files.push(x);
+	});
+	function count(n){ let c = n.files.length; for (const k in n.dirs) c += count(n.dirs[k]); return c; }
+	function rows(node, depth) {
+		let h = '';
+		Object.keys(node.dirs).sort().forEach(name => {
+			const d = node.dirs[name];
+			const closed = state.featClosed.has(d.path);
+			h += `<div class="ftdir" data-ftdir="${d.path}" style="padding-left:${14+depth*18}px"><span class="caret">${closed?'▶':'▼'}</span><span>📁 ${name}</span><span class="fc">${count(d)} 文件</span></div>`;
+			if (!closed) h += rows(d, depth + 1);
+		});
+		node.files.forEach(x => {
+			const others = ownersOf(FILE_INDEX[x.path]).filter(fid => fid !== featId);
+			h += `<div class="ftfile" data-file="${x.path}" style="padding-left:${14+depth*18+22}px" title="${x.path}">
+				${extBadge(x.type)}<span class="fname">${x.path.split('/').pop()}</span>
+				<span class="frole">${x.note || x.role || ''}</span>
+				<span class="flines">${x.lines ? x.lines.toLocaleString() : ''}</span>
+				<span class="fbadges">${others.map(featBadge).join('')}</span>
+				<span class="ftr-acts"><span class="ftr-ic" data-copypath="${x.path}" title="复制相对路径">⧉</span><span class="ftr-ic" data-openpath="${x.path}" title="新标签页打开文件">↗</span></span>
+			</div>`;
+		});
+		return h;
+	}
+	return `<div class="ftree">${rows(root, 0)}</div>`;
+}
+
+async function copyText(t) {
+	try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+		const ta = document.createElement('textarea');
+		ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+		document.body.appendChild(ta); ta.select();
+		let ok = false; try { ok = document.execCommand('copy'); } catch (_) {}
+		ta.remove(); return ok;
+	}
+}
+function copyFeatureJson(id) {
+	const f = featById(id); if (!f) return;
+	const payload = {
+		feature: f.id, name: f.name, category: f.cat, description: f.desc,
+		files: (f.node.files||[]).map(x => ({ path:x.path, type:x.type, lines:x.lines, role:x.note||x.role||'' })),
+		tests: (f.node.tests||[]).map(t => ({ path:t.path, note:t.note||'' }))
+	};
+	copyText(JSON.stringify(payload, null, 2)).then(ok => {
+		const b = document.getElementById('copyFeat');
+		if (b) { b.textContent = ok ? '已复制 ✓' : '复制失败'; setTimeout(() => { b.textContent = '⧉ 复制信息'; }, 1500); }
+	});
+}
+
+function renderFeature(id) {
+	destroyNet();
+	const f = featById(id); if (!f) return;
+	const el = document.getElementById('content');
+	const files = (f.node.files||[]).slice().sort((a,b) => (TYPE_ORDER[a.type]??9)-(TYPE_ORDER[b.type]??9) || (b.lines||0)-(a.lines||0));
+	const tests = f.node.tests || [];
+	const totalLines = files.reduce((a,x) => a + (x.lines||0), 0);
+	const siblings = DATA.tree.find(c => c.id === f.catId).children.filter(x => x.id !== id);
+
+	el.innerHTML = `
+		<div class="crumb"><a data-go="">图谱</a> / <a data-go="${f.catId}">${f.cat}</a> / ${f.name}</div>
+		<div class="h2row"><span class="ci">${f.icon}</span><h2>${f.name}</h2><span class="tag">${f.id}</span><button class="ghost" id="copyFeat" style="margin-left:auto" title="复制本功能描述与文件清单（JSON）">⧉ 复制信息</button></div>
+		<p class="fdesc">${f.desc}</p>
+		${files.length ? `<h3>文件 · ${files.length}（${totalLines.toLocaleString()} 行代码）· 目录树</h3>${featTreeHtml(files, id)}` : ''}
+		${tests.length ? `<h3>契约测试 · ${tests.length}</h3>
+		<table><thead><tr><th style="width:44%">测试</th><th>覆盖点</th></tr></thead><tbody>
+		${tests.map(t => `<tr><td class="path">${extBadge(t.type||'gd')}${t.path}</td><td class="tnote">${t.note||''}</td></tr>`).join('')}
+		</tbody></table>` : ''}
+		${siblings.length ? `<h3>同级功能</h3><div class="childchips">${siblings.map(s => `<span class="chip" data-go="${s.id}">${s.name}</span>`).join('')}</div>` : ''}
+	`;
+}
+
+function renderFolder(path) {
+	destroyNet();
+	const node = findDir(path);
+	const el = document.getElementById('content');
+	if (!node) { el.innerHTML = `<div class="empty">目录不存在：${path}</div>`; return; }
+	state.view = 'folder'; state.folder = path;
+	const all = [];
+	(function walk(n){ n.files.forEach(p => all.push(p)); for (const k in n.dirs) walk(n.dirs[k]); })(node);
+	all.sort();
+	const subdirs = Object.keys(node.dirs).sort();
+	const segs = path ? path.split('/') : [];
+	let acc = '';
+	const crumbHtml = `<a data-dir="">图谱</a> / <a data-dir="">/</a>` + segs.map(s => { acc = acc ? acc+'/'+s : s; return ` <a data-dir="${acc}">${s}</a>`; }).join(' / ');
+	const totalLines = all.reduce((a,p) => { const l = (FILE_INDEX[p]||[]).map(r=>r.lines).find(x=>x); return a + (l||0); }, 0);
+
+	el.innerHTML = `
+		<div class="crumb">${crumbHtml}</div>
+		<div class="h2row"><span class="ci">📁</span><h2>${path || '（根目录）'}</h2><span class="tag">${all.length} 文件${totalLines?' · '+totalLines.toLocaleString()+' 行':''}</span></div>
+		<p class="fdesc">递归列出本目录及子目录的全部收录文件。</p>
+		${subdirs.length ? `<h3>子目录 · ${subdirs.length}</h3>
+		<div class="childchips">${subdirs.map(d => `<span class="chip" data-dir="${path?path+'/':''}${d}">📁 ${d} <span style="color:var(--faint)">${node.dirs[d].count}</span></span>`).join('')}</div>` : ''}
+		<h3>文件 · ${all.length}（递归）</h3>
+		${all.length ? `<table><thead><tr><th style="width:34%">路径</th><th>职责</th><th style="width:70px">行数</th><th style="width:240px">所属功能</th></tr></thead><tbody>
+		${all.map(p => {
+			const refs = FILE_INDEX[p] || [];
+			const r0 = refs.find(r => r.role) || refs[0] || {};
+			return `<tr><td class="path" data-file="${p}" title="${p}">${extBadge(r0.type)}${path ? p.slice(path.length+1) : p}</td>
+			<td class="role">${r0.role||''}</td>
+			<td class="lines">${r0.lines ? r0.lines.toLocaleString() : ''}</td>
+			<td class="badges">${ownersOf(refs).map(featBadge).join('')}</td></tr>`;
+		}).join('')}
+		</tbody></table>` : '<div class="empty">本目录无收录文件</div>'}
+	`;
+}
+
+function openFileInFeature(path) {
+	const owners = ownersOf(FILE_INDEX[path] || []);
+	if (!owners.length) { go(''); return; }
+	const fid = owners[0];
+	const parts = path.split('/');
+	for (let i = 1; i < parts.length; i++) state.featClosed.delete(parts.slice(0, i).join('/'));
+	state.file = path;
+	select(fid);
+	const cssEsc = s => s.replace(/["\\]/g, '\\$&');
+	const row = document.querySelector('.ftfile[data-file="' + cssEsc(path) + '"]');
+	if (row) {
+		row.classList.add('active');
+		row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		setTimeout(() => row.classList.remove('active'), 2600);
+	}
+}
+
+function renderCoverage() {
+	destroyNet();
+	const el = document.getElementById('content');
+	const mappedFiles = Object.keys(FILE_INDEX).length;
+	const v = DATA.vendored || [], u = DATA.unmapped || [];
+	el.innerHTML = `
+		<div class="crumb"><a data-go="">图谱</a> / 覆盖率</div>
+		<h2>覆盖率报告</h2>
+		<p class="cov-note">项目自有代码文件（git 追踪，不含 addons 与引擎生成物）已全量映射到 ${FEATURES.length} 个功能节点。
+		文件可多归属（shared）；vendored 插件按模块级收录；下方为显式排除项。</p>
+		<h3>归属统计</h3>
+		<table><tbody>
+			<tr><td class="role">功能节点</td><td class="lines">${FEATURES.length}</td></tr>
+			<tr><td class="role">收录文件（含场景/着色器/配置/测试，去重）</td><td class="lines">${mappedFiles}</td></tr>
+			<tr><td class="role">多归属文件（shared）</td><td class="lines">${Object.values(FILE_INDEX).filter(r=>ownersOf(r).length>1).length}</td></tr>
+			<tr><td class="role">vendored 模块</td><td class="lines">${v.length}</td></tr>
+		</tbody></table>
+		<h3>Vendored 模块（不展开单文件）</h3>
+		<div class="vend">${v.map(x=>`<div class="vcard"><div class="vn">${x.path}</div><div class="vm">${x.name} ${x.version} · ~${x.files} .gd<br>${x.role}</div></div>`).join('')}</div>
+		${u.length?`<h3>显式排除（${u.length}）</h3>
+		<table><tbody>${u.map(x=>`<tr><td class="path" style="cursor:default">${x.path}</td><td class="tnote">${x.reason}</td></tr>`).join('')}</tbody></table>`:''}
+	`;
+}
+
+/* ---------- router ---------- */
+const state = { sel:null, view:'home', sideView:'feat', folder:'', file:'', filter:'', openDirs:new Set(), featClosed:new Set(), drawer:null };
+function select(id) { state.sel = id; state.view = 'feat'; closeDrawer(); renderSidebar(); renderFeature(id); document.getElementById('content').scrollTop = 0; }
+function go(target) {
+	closeDrawer();
+	if (!target) { state.view='home'; renderSidebar(); renderHome(); return; }
+	const cat = DATA.tree.find(c=>c.id===target);
+	if (cat && !featById(target)) { renderCategory(target); return; }
+	select(target);
+}
+/* ---------- category full page & third column ---------- */
+function catStats(cat) {
+	const feats = cat.children;
+	const nFiles = feats.reduce((a,f)=>a+(f.files||[]).length, 0);
+	const lines = feats.reduce((a,f)=>a+(f.files||[]).reduce((b,x)=>b+(x.lines||0), 0), 0);
+	const nTests = feats.reduce((a,f)=>a+((f.tests)||[]).length, 0);
+	return { feats, nFiles, lines, nTests };
+}
+function renderCategory(catId) {
+	const cat = DATA.tree.find(c=>c.id===catId); if (!cat) return;
+	destroyNet();
+	closeDrawer();
+	state.view = 'cat'; state.sel = null; state.folder = '';
+	const { feats, nFiles, lines, nTests } = catStats(cat);
+	document.getElementById('content').innerHTML = `
+		<div class="crumb"><a data-go="">图谱</a> / ${cat.icon} ${cat.name}</div>
+		<div class="h2row"><span class="ci">${cat.icon}</span><h2>${cat.name}</h2><span class="tag">${feats.length} 个功能</span></div>
+		<p class="fdesc">文件 ${nFiles} · 代码 ${lines.toLocaleString()} 行 · 契约 ${nTests}</p>
+		<h3>功能清单</h3>
+		<table><thead><tr><th style="width:26%">功能</th><th>职责</th><th style="width:64px">文件</th><th style="width:88px">行数</th><th style="width:64px">契约</th></tr></thead><tbody>
+		${feats.map(f => {
+			const fl = f.files||[], tl = fl.reduce((a,x)=>a+(x.lines||0),0);
+			return `<tr><td><span class="chip" data-go="${f.id}">${featDot(f.id)}${f.name}</span></td><td class="role">${(f.desc||'').slice(0,90)}</td><td class="lines">${fl.length}</td><td class="lines">${tl.toLocaleString()}</td><td class="lines">${(f.tests||[]).length}</td></tr>`;
+		}).join('')}
+		</tbody></table>`;
+	renderSidebar();
+	document.getElementById('content').scrollTop = 0;
+}
+function drawerHead(icon, name, tag, goId) {
+	return `<div class="cphead"><span class="ci">${icon}</span><h2>${name}</h2>${tag ? `<span class="tag">${tag}</span>` : ''}<span class="cpx" id="cpx" title="关闭">✕</span></div>
+	<div class="dpact"><button class="ghost sidebtn" data-go="${goId}" title="在页面中打开">↗ 整页打开</button></div>`;
+}
+function buildCatDrawer(pn, catId) {
+	const cat = DATA.tree.find(c=>c.id===catId); if (!cat) return false;
+	const { feats, nFiles, lines, nTests } = catStats(cat);
+	const files = feats.flatMap(f => (f.files||[]).slice()).sort((a,b) => (TYPE_ORDER[a.type]??9)-(TYPE_ORDER[b.type]??9) || (b.lines||0)-(a.lines||0));
+	const tests = feats.flatMap(f => (f.tests||[]).map(t => ({ feat: f, t })));
+	const others = DATA.tree.filter(c => c.id !== catId);
+	pn.innerHTML = `
+		${drawerHead(cat.icon, cat.name, feats.length + ' 个功能', catId)}
+		<div class="cpstat">文件 ${nFiles} · 代码 ${lines.toLocaleString()} 行 · 契约 ${nTests}</div>
+		<div class="dpsec">功能清单（点击切换抽屉）</div>
+		${feats.map(f => `<div class="cpfeat" data-dr="feat:${f.id}">${featDot(f.id)}<span class="cpname">${f.name}</span><span class="fc">${(f.files||[]).length} 文件${(f.tests||[]).length ? ' · ✅'+f.tests.length : ''}</span></div>`).join('')}
+		<div class="dpsec">文件目录树 · ${files.length}</div>
+		${featTreeHtml(files, null)}
+		${tests.length ? `<div class="dpsec">契约测试 · ${tests.length}</div>
+		<table><thead><tr><th style="width:30%">功能</th><th>测试</th></tr></thead><tbody>
+		${tests.map(x => `<tr><td><span class="chip" data-dr="feat:${x.feat.id}">${featDot(x.feat.id)}${x.feat.name}</span></td><td class="path" title="${x.t.note||''}">${extBadge(x.t.type||'gd')}${x.t.path}</td></tr>`).join('')}
+		</tbody></table>` : ''}
+		${others.length ? `<div class="dpsec">其他分类</div><div class="childchips">${others.map(c => `<span class="chip" data-dr="cat:${c.id}">${c.icon} ${c.name}</span>`).join('')}</div>` : ''}
+	`;
+	return true;
+}
+function buildFeatDrawer(pn, fid) {
+	const f = featById(fid); if (!f) return false;
+	const files = (f.node.files||[]).slice().sort((a,b) => (TYPE_ORDER[a.type]??9)-(TYPE_ORDER[b.type]??9) || (b.lines||0)-(a.lines||0));
+	const tests = f.node.tests || [];
+	const totalLines = files.reduce((a,x) => a + (x.lines||0), 0);
+	const siblings = DATA.tree.find(c => c.id === f.catId).children.filter(x => x.id !== fid);
+	pn.innerHTML = `
+		${drawerHead(f.icon, f.name, f.id, fid)}
+		<p class="fdesc">${f.desc}</p>
+		<div class="cpstat">文件 ${files.length} · 代码 ${totalLines.toLocaleString()} 行 · 契约 ${tests.length}</div>
+		${files.length ? `<div class="dpsec">文件目录树 · ${files.length}</div>${featTreeHtml(files, fid)}` : ''}
+		${tests.length ? `<div class="dpsec">契约测试 · ${tests.length}</div>
+		<table><thead><tr><th style="width:44%">测试</th><th>覆盖点</th></tr></thead><tbody>
+		${tests.map(t => `<tr><td class="path">${extBadge(t.type||'gd')}${t.path}</td><td class="tnote">${t.note||''}</td></tr>`).join('')}
+		</tbody></table>` : ''}
+		${siblings.length ? `<div class="dpsec">同级功能</div><div class="childchips">${siblings.map(s => `<span class="chip" data-dr="feat:${s.id}">${featDot(s.id)}${s.name}</span>`).join('')}</div>` : ''}
+	`;
+	return true;
+}
+function openDrawer(kind, id) {	const pn = document.getElementById('drawer');
+	const ok = kind === 'cat' ? buildCatDrawer(pn, id) : buildFeatDrawer(pn, id);
+	if (!ok) return;
+	state.drawer = kind + ':' + id;
+	pn.className = 'open';
+	pn.scrollTop = 0;
+	const x = document.getElementById('cpx');
+	if (x) x.onclick = () => closeDrawer();
+}
+function closeDrawer() {
+	state.drawer = null;
+	const pn = document.getElementById('drawer');
+	pn.className = ''; pn.innerHTML = '';
+}
+function highlightDrawerFile(path) {
+	const esc = String(path).replace(/["\\]/g, '\\$&');
+	const row = document.querySelector('#drawer .ftfile[data-file="' + esc + '"]');
+	if (!row) return;
+	row.classList.add('active');
+	if (row.scrollIntoView) row.scrollIntoView({ behavior:'smooth', block:'nearest' });
+	setTimeout(() => row.classList.remove('active'), 2600);
+}
+/* ---------- knowledge graph (vis-network, embedded standalone build) ---------- */
+let NET = null, VIS_DS = null, VIS_EDGES = null, VIS_PROMISE = null;
+function destroyNet(){ if (NET) { try { NET.destroy(); } catch (e) {} NET = null; } }
+function tryLoadVis() {
+	if (!VIS_PROMISE) VIS_PROMISE = new Promise(res => {
+		res(typeof window !== 'undefined' && !!window.vis && !!window.vis.Network);
+	});
+	return VIS_PROMISE;
+}
+function sharedEdges() {
+	const byPair = {};
+	Object.values(FILE_INDEX).forEach(refs => {
+		const fs = ownersOf(refs);
+		for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
+			const k = fs[i] < fs[j] ? fs[i] + '|' + fs[j] : fs[j] + '|' + fs[i];
+			byPair[k] = (byPair[k] || 0) + 1;
+		}
+	});
+	return Object.entries(byPair).map(([k, w]) => {
+		const [a, b] = k.split('|');
+		return { from: a, to: b, value: w, title: '共享文件 × ' + w, color: { color: 'rgba(150,160,190,.35)', highlight: 'rgba(232,176,75,.8)' } };
+	});
+}
+function catHsl(name, s, l) { const h = hashHue(name); return `hsl(${h},${s}%,${l}%)`; }
+function buildGraph() {
+	const V = (typeof window !== 'undefined') && window.vis;
+	const wrap = document.getElementById('netcanvas');
+	if (!V || !wrap) return false;
+	destroyNet();
+	const groups = {};
+	DATA.tree.forEach(c => { groups[c.id] = {
+		color: { background: catHsl(c.name, 55, 40), border: catHsl(c.name, 70, 60), highlight: { background: catHsl(c.name, 60, 52), border: catHsl(c.name, 80, 72) } },
+		shape: 'dot',
+	}; });
+	const nodes = FEATURES.map(f => ({ id: f.id, label: f.name, group: f.catId, catId: f.catId,
+		value: Math.max(1, (f.node.files || []).length),
+		title: f.cat + ' › ' + f.name + '\n' + f.desc + '\n文件 ' + (f.node.files || []).length + (f.node.tests ? ' · 契约 ' + f.node.tests.length : '') + '（点击在第三列展示）',
+		font: { color: '#dfe3ec', size: 12 } }));
+	const catNodes = [], catEdges = [];
+	DATA.tree.forEach(c => {
+		catNodes.push({ id: 'cat:' + c.id, label: c.icon + ' ' + c.name, catId: c.id,
+			shape: 'diamond', size: 16,
+			color: { background: catHsl(c.name, 50, 30), border: catHsl(c.name, 70, 65), highlight: { background: catHsl(c.name, 55, 42), border: catHsl(c.name, 80, 75) } },
+			title: c.name + ' · ' + c.children.length + ' 个功能（点击在第三列展示）',
+			font: { color: '#f0d9a8', size: 13 } });
+		c.children.forEach(f => catEdges.push({ from: 'cat:' + c.id, to: f.id,
+			color: { color: 'rgba(130,140,170,.22)', highlight: 'rgba(232,176,75,.7)' }, dashes: true }));
+	});
+	const shared = sharedEdges();
+	const edges = catEdges.concat(shared);
+	VIS_DS = new V.DataSet(catNodes.concat(nodes));
+	VIS_EDGES = new V.DataSet(edges);
+	NET = new V.Network(wrap, { nodes: VIS_DS, edges: VIS_EDGES }, {
+		nodes: { shape: 'dot', size: 12, scaling: { min: 8, max: 26 }, borderWidth: 1.5 },
+		edges: { smooth: { type: 'continuous' }, color: { color: 'rgba(150,160,190,.3)', highlight: 'rgba(232,176,75,.8)' }, font: { size: 10, color: '#8b91a5', strokeWidth: 0 } },
+		physics: { stabilization: { iterations: 150 }, barnesHut: { gravitationalConstant: -8000, springLength: 120 } },
+		interaction: { hover: true, tooltipDelay: 200 },
+	});
+	NET.on('click', params => {
+		if (!params.nodes.length || NET.isCluster(params.nodes[0])) return;
+		const id = params.nodes[0];
+		if (featById(id)) openDrawer('feat', id);
+		else if (id.slice(0, 4) === 'cat:') openDrawer('cat', id.slice(4));
+	});
+	NET.on('doubleClick', params => {
+		if (params.nodes.length && NET.isCluster(params.nodes[0])) NET.openCluster(params.nodes[0]);
+	});
+	const st = document.getElementById('gstat');
+	if (st) st.textContent = `功能 ${nodes.length} · 分类枢纽 ${catNodes.length} · 层级边 ${catEdges.length} · 共享边 ${shared.length} · 点节点开第三列 · 双击集群展开`;
+	return true;
+}
+function openAllClusters() {
+	if (!NET) return;
+	let opened = true;
+	while (opened) {
+		opened = false;
+		const ids = NET.body.nodeIndices.slice();
+		for (const id of ids) if (NET.isCluster(id)) { NET.openCluster(id); opened = true; break; }
+	}
+}
+function wireGraphCtl() {
+	const sel = document.getElementById('gcat');
+	if (sel) sel.onchange = () => {
+		if (!NET || !VIS_DS) return;
+		const val = sel.value;
+		VIS_DS.get().forEach(n => VIS_DS.update({ id: n.id, hidden: val !== 'all' && n.catId !== val }));
+		NET.fit();
+	};
+	const cb = document.getElementById('gcluster');
+	if (cb) cb.onclick = () => {
+		if (!NET) return;
+		openAllClusters();
+		DATA.tree.forEach(c => NET.cluster({
+			joinCondition: o => o.catId === c.id,
+			clusterNodeProperties: { label: c.icon + ' ' + c.name, shape: 'database', catId: c.id,
+				color: { background: catHsl(c.name, 55, 35), border: catHsl(c.name, 70, 55) }, allowSingleNodeCluster: true },
+		}));
+	};
+	const ob = document.getElementById('gopen');
+	if (ob) ob.onclick = () => { openAllClusters(); if (NET) NET.fit(); };
+	const fb = document.getElementById('gfit');
+	if (fb) fb.onclick = () => { if (NET) NET.fit(); };
+}
+function renderHome() {
+	const el = document.getElementById('content');
+	destroyNet();
+	el.innerHTML = `
+		<div class="crumb">知识图谱</div>
+		<h2>${DATA.project || '项目'} 功能依赖图谱</h2>
+		<p class="fdesc">${DATA.description||''}<br><span style="color:var(--faint);font-size:12px">生成于 ${DATA.generated||''} · HEAD ${DATA.head_commit||''} · 左侧选择功能；<code>/</code> 聚焦文件夹页的过滤框</span></p>
+		<div id="gctl" class="gctl">
+			<select id="gcat" class="gsel"><option value="all">全部分类</option>${DATA.tree.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('')}</select>
+			<button class="ghost" id="gcluster">按分类折叠</button>
+			<button class="ghost" id="gopen">展开全部</button>
+			<button class="ghost" id="gfit">适配视野</button>
+			<span id="gstat" style="color:var(--faint);font-size:12px;margin-left:auto">渲染中…</span>
+		</div>
+		<div id="netcanvas" style="display:none;height:560px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02)"></div>
+		<div id="homeFallback">
+			${DATA.tree.map(cat=>`
+				<h3 style="margin-top:26px">${cat.icon} ${cat.name}</h3>
+				<div class="childchips">${cat.children.map(f=>`<span class="chip" data-go="${f.id}">${f.name} <span style="color:var(--faint)">${(f.files||[]).length}</span></span>`).join('')}</div>
+			`).join('')}
+		</div>
+	`;
+	wireGraphCtl();
+	tryLoadVis().then(ok => {
+		if (state.view !== 'home') return;
+		const canvas = document.getElementById('netcanvas'), fb = document.getElementById('homeFallback'), st = document.getElementById('gstat');
+		if (ok && buildGraph()) {
+			if (canvas) canvas.style.display = '';
+			if (fb) fb.style.display = 'none';
+		} else if (st) {
+			st.textContent = '⚠ vis-network 未随文件内嵌（生成管线缺 vendor 库），已回退为列表总览';
+			if (canvas) canvas.style.display = 'none';
+			if (fb) fb.style.display = '';
+		}
+	});
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+	const inDrawer = !!(state.drawer && e.target.closest && e.target.closest('#drawer'));
+	const dr = e.target.closest('[data-dr]'); if (dr) { const sep = dr.dataset.dr.indexOf(':'); openDrawer(dr.dataset.dr.slice(0, sep), dr.dataset.dr.slice(sep + 1)); return; }
+	const g = e.target.closest('[data-go]'); if (g) { go(g.dataset.go); return; }
+	const ft = e.target.closest('[data-ftdir]'); if (ft) {
+		const p = ft.dataset.ftdir;
+		state.featClosed.has(p) ? state.featClosed.delete(p) : state.featClosed.add(p);
+		if (inDrawer) { const sep = state.drawer.indexOf(':'); openDrawer(state.drawer.slice(0, sep), state.drawer.slice(sep + 1)); }
+		else if (state.view === 'feat' && state.sel) renderFeature(state.sel);
+		return;
+	}
+	const cp = e.target.closest('#copyFeat'); if (cp) { copyFeatureJson(state.sel); return; }
+	const cpx = e.target.closest('[data-copypath]'); if (cpx) {
+		copyText(cpx.dataset.copypath);
+		const prev = cpx.textContent; cpx.textContent = '✓';
+		setTimeout(() => { cpx.textContent = prev; }, 1200);
+		return;
+	}
+	const opx = e.target.closest('[data-openpath]'); if (opx) { window.open('../' + opx.dataset.openpath, '_blank'); return; }
+	const d = e.target.closest('[data-dir]'); if (d) { renderFolder(d.dataset.dir); document.getElementById('content').scrollTop = 0; return; }
+	const f = e.target.closest('[data-file]'); if (f) {
+		if (inDrawer) { highlightDrawerFile(f.dataset.file); return; }
+		openFileInFeature(f.dataset.file); return;
+	}
+});
+document.getElementById('covBtn').onclick = () => renderCoverage();
+document.addEventListener('keydown', e => {
+	if (e.key==='/' && document.activeElement.id!=='ffilter') {
+		e.preventDefault();
+		if (state.sideView !== 'folder') { state.sideView = 'folder'; renderSidebar(); }
+		const inp = document.getElementById('ffilter'); if (inp) inp.focus();
+	}
+	if (e.key==='Escape') {
+		if (state.drawer) { closeDrawer(); return; }
+		const inp = document.getElementById('ffilter');
+		state.filter = '';
+		if (inp) { inp.value = ''; inp.blur(); if (state.sideView === 'folder') renderSidebar(); }
+	}
+});
+
+/* ---------- boot ---------- */
+/* ---------- column resizers (persisted per project) ---------- */
+const COLS_KEY = 'fmCols:' + (DATA.project || 'default');
+function applyCols(c) {
+	const sb = document.getElementById('sidebar'), dr = document.getElementById('drawer');
+	if (c.side) sb.style.width = c.side + 'px';
+	if (c.drawer) { dr.style.width = c.drawer + 'px'; dr.style.maxWidth = 'none'; }
+}
+function savedCols() {
+	try { const v = JSON.parse(localStorage.getItem(COLS_KEY)); if (v && v.side && v.drawer) return v; } catch (e) {}
+	return null;
+}
+function initResizers() {
+	applyCols(savedCols() || {});
+	const rzS = document.getElementById('rzSide'), rzD = document.getElementById('rzDrawer');
+	let drag = null;
+	function down(e, which, el) {
+		const sb = document.getElementById('sidebar'), dr = document.getElementById('drawer');
+		drag = { which, x: e.clientX, side: parseInt(sb.style.width) || 302, dw: parseInt(dr.style.width) || 560, el };
+		el.className = 'vrs drag';
+		if (document.body && document.body.style) document.body.style.userSelect = 'none';
+		if (e.preventDefault) e.preventDefault();
+	}
+	rzS.onmousedown = e => down(e, 'side', rzS);
+	rzD.onmousedown = e => down(e, 'drawer', rzD);
+	document.addEventListener('mousemove', e => {
+		if (!drag) return;
+		const dx = e.clientX - drag.x;
+		if (drag.which === 'side') applyCols({ side: Math.min(560, Math.max(220, drag.side + dx)) });
+		else applyCols({ drawer: Math.min(860, Math.max(300, drag.dw - dx)) });
+	});
+	document.addEventListener('mouseup', () => {
+		if (!drag) return;
+		drag.el.className = 'vrs';
+		if (document.body && document.body.style) document.body.style.userSelect = '';
+		const sb = document.getElementById('sidebar'), dr = document.getElementById('drawer');
+		const c = { side: parseInt(sb.style.width) || 302, drawer: parseInt(dr.style.width) || 560 };
+		applyCols(c);
+		try { localStorage.setItem(COLS_KEY, JSON.stringify(c)); } catch (e) {}
+		drag = null;
+	});
+}
+function boot() {
+	indexData();
+	buildFolders();
+	RANKED = Object.entries(FILE_INDEX)
+		.map(([p, refs]) => ({ p, lines: refs.map(r => r.lines).find(x => x) || 0, feats: ownersOf(refs) }))
+		.filter(x => x.lines > 0)
+		.sort((a, b) => b.lines - a.lines)
+		.slice(0, 100);
+	if (!state.openDirs.size) state.openDirs = new Set(['', ...Object.keys(FOLDER_ROOT.dirs)]);
+	const brand = (DATA.project ? DATA.project + ' · ' : '') + '功能依赖图谱';
+	document.getElementById('brandName').textContent = brand;
+	document.title = (DATA.project ? DATA.project + ' — ' : '') + '功能依赖图谱';
+	const totFeatures = FEATURES.length;
+	const mapped = Object.keys(FILE_INDEX).length;
+	const shared = Object.values(FILE_INDEX).filter(r=>ownersOf(r).length>1).length;
+	document.getElementById('stats').innerHTML =
+		`<span class="stat">功能 <b>${totFeatures}</b></span>
+		 <span class="stat">文件 <b>${mapped}</b></span>
+		 <span class="stat">shared <b>${shared}</b></span>
+		 <span class="stat acc">覆盖 <b>100%</b></span>`;
+	renderSidebar();
+	renderHome();
+	initResizers();
+}
+if (DATA) boot();
+</script>
+</body>
+</html>

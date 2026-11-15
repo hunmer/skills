@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "5bfb0086-d9ad-4267-afee-4d7ea4db9f89",
+  "path": "init-project-2",
+  "path_key": "init-project-2",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
